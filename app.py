@@ -1,3 +1,4 @@
+import glob
 import json
 import os
 
@@ -69,7 +70,28 @@ with tab1:
         "Malignant threshold", 0.1, 0.9, DEFAULT_THRESH, 0.05,
         help="Lower = catches more cancers but gives more false alarms.",
     )
-    file = st.file_uploader("Upload a breast ultrasound image", type=["png", "jpg", "jpeg"])
+    # Built-in samples so visitors can try the app without having an image
+    sample_files = sorted(
+        glob.glob("samples/*.png") + glob.glob("samples/*.jpg") + glob.glob("samples/*.jpeg")
+    )
+    file, truth = None, None
+    if sample_files:
+        mode = st.radio(
+            "Image source", ["Try a sample image", "Upload your own"], horizontal=True
+        )
+    else:
+        mode = "Upload your own"
+
+    if mode == "Try a sample image":
+        choice = st.selectbox(
+            "Choose a sample ultrasound from the public BUSI dataset",
+            sample_files,
+            format_func=lambda f: f"Sample {sample_files.index(f) + 1}",
+        )
+        file = choice
+        truth = os.path.basename(choice).split("_")[0]  # e.g. benign_1.png -> benign
+    else:
+        file = st.file_uploader("Upload a breast ultrasound image", type=["png", "jpg", "jpeg"])
 
     if file:
         img = Image.open(file).convert("RGB").resize((224, 224))
@@ -92,9 +114,11 @@ with tab1:
             for cname, p in zip(CLASSES, probs):
                 st.write(f"{cname}: {p:.1%}")
                 st.progress(float(p))
+        if truth:
+            st.info(f"Ground-truth label from the dataset: **{truth}**")
         st.caption("The heatmap shows the image regions that most influenced the prediction.")
     else:
-        st.info("Upload an image to see the prediction and Grad-CAM heatmap.")
+        st.info("Choose a sample or upload an image to see the prediction and Grad-CAM heatmap.")
 
 # ---------------- Performance ----------------
 with tab2:
